@@ -26,8 +26,14 @@ task.h is included from an application file. */
 /* Assumes 8bit bytes! */
 #define heapBITS_PER_BYTE		( ( size_t ) 8 )
 
-/* Allocate the memory for the heap. */
-static uint8_t ucHeap[ configTOTAL_HEAP_SIZE ];
+/* Allocate the memory for the heap.
+ * LOCAL CHANGE: size the micro-ROS pool independently of the FreeRTOS kernel
+ * heap. Upstream ties both to configTOTAL_HEAP_SIZE, which double-counts on a
+ * 64 KB part. Override with -DMICROROS_MEMORY_POOL_SIZE=<bytes> (see Makefile). */
+#ifndef MICROROS_MEMORY_POOL_SIZE
+#define MICROROS_MEMORY_POOL_SIZE configTOTAL_HEAP_SIZE
+#endif
+static uint8_t ucHeap[ MICROROS_MEMORY_POOL_SIZE ];
 
 /* Define the linked list structure.  This is used to link free blocks in order
 of their memory address. */
