@@ -34,6 +34,13 @@ volatile size_t it_tail = 0;
 volatile bool g_write_complete = false;
 bool initialized = false;
 
+/* Set from the CDC SET_CONTROL_LINE_STATE request: true while a host has the
+ * serial port open (DTR asserted). The micro-ROS app gates all transmission on
+ * this so the board never pushes bytes into a port with no reader (a stale pile
+ * corrupts the next agent's first session). Also gives instant agent-close
+ * detection when the host drops DTR on Ctrl+C. */
+volatile bool g_host_port_open = false;
+
 // Transmission completed callback
 static int8_t CDC_TransmitCplt_FS(uint8_t *Buf, uint32_t *Len, uint8_t epnum)
 {
@@ -58,12 +65,17 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
         memcpy(pbuf, line_coding, sizeof(line_coding));
         break;
 
+        case CDC_SET_CONTROL_LINE_STATE:
+        /* Zero-length request: usbd_cdc.c passes the raw setup packet as pbuf.
+           wValue bit 0 = DTR = host has the port open. */
+        g_host_port_open = ((((USBD_SetupReqTypedef *) pbuf)->wValue & 0x0001U) != 0U);
+        break;
+
         case CDC_SEND_ENCAPSULATED_COMMAND:
         case CDC_GET_ENCAPSULATED_RESPONSE:
         case CDC_SET_COMM_FEATURE:
         case CDC_GET_COMM_FEATURE:
         case CDC_CLEAR_COMM_FEATURE:
-        case CDC_SET_CONTROL_LINE_STATE:
         case CDC_SEND_BREAK:
         default:
             break;
